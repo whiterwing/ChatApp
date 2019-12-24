@@ -1,13 +1,6 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Dec 11 10:42:07 2019
-
-@author: white
-"""
-
 import socket
 
-server_IP = "192.168.1.177"
+server_IP = "127.0.0.1"
 TCP_Port = 1234
 BUFFER_SIZE = 1024
 
@@ -22,7 +15,6 @@ conn = server.accept()[0]
 print ("Connection Address:", conn.getpeername())
 
 def __main__():
-    print ("Start of main")
     BUFFER_SIZE = 1024
     global users
 
@@ -31,10 +23,17 @@ def __main__():
         print (data)
         
         try:
-            keyword, data = str(data).split(" %% ")
-            if keyword == "b'username":
-                users[conn.getpeername()[0]]=data.strip("'")
+            keyword, data = str(data).split(" says: ")
+            if keyword.strip("b'") not in users:
+                users[data.strip("'")] = conn
                 print (f"{conn.getpeername()[0]} connected with username: {data}")
+            elif data == "b''": 
+                conn.close()
+                server.close()
+                break
+            else:
+                print(f"received data from {users[conn.getpeername()[0]]}:", data)
+                conn.send(f"{users[conn.getpeername()[0]]} says: {str(data)[2:len(str(data))-1]}".encode("utf-8"))
         except:
             if data == "b'exit'":
                 conn.close()
@@ -44,9 +43,6 @@ def __main__():
                 conn.close()
                 server.close()
                 break
-            else:
-                print(f"received data from {users[conn.getpeername()[0]]}:", data)
-                conn.send(f"{users[conn.getpeername()[0]]} says: {str(data)[2:len(str(data))-1]}".encode("utf-8"))
 
 
 if __name__ == "__main__":
