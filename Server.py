@@ -36,7 +36,10 @@ def handle_client(client):
     clients[client] = name
     
     while True:
-        msg = client.recv(BUFFER_SIZE)
+        try:
+            msg = client.recv(BUFFER_SIZE)
+        except ConnectionResetError:
+            continue
         if msg != bytes("/quit", 'utf-8'):
             broadcast(msg, name+": ")
         else:
@@ -46,7 +49,7 @@ def handle_client(client):
                 continue
             client.close()
             del clients[client]
-            broadcast(bytes("{name} has left the channel", 'utf-8'))
+            broadcast(bytes(f"{name} has left the channel", 'utf-8'))
             break
         
 def broadcast(msg, prefix=""):
@@ -70,7 +73,7 @@ if __name__ == "__main__":
     
     server_IP = "127.0.0.1"
     TCP_Port = 1234
-    BUFFER_SIZE = 10
+    BUFFER_SIZE = 1024
     ADDR = (server_IP, TCP_Port)
     
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

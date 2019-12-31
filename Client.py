@@ -23,7 +23,7 @@ class network_Handle(object):
         server_IP = "127.0.0.1"
         server_Port = 1234
         self.ADDR = (server_IP,server_Port)
-        self.BUFFER_SIZE = 10
+        self.BUFFER_SIZE = 1024
         
         try:
             self.client_socket = socket.create_connection((server_IP, server_Port))
@@ -92,14 +92,13 @@ class ChatBox(object):
         self.login_popup = TK.Tk()
         self.login_popup.title("Login")
         
-        self.username = TK.StringVar()
-        
         login_label = TK.Label(self.login_popup, text="Usersname")
         login_label.grid(row=0, column=0)
         
-        login_entry = TK.Entry(self.login_popup, textvariable=self.my_msg)
-        login_entry.grid(row=0, column=1)
-        login_entry.focus_set()
+        self.login_entry = TK.Entry(self.login_popup)
+        self.login_entry.bind('<Return>', self.popup_submit)
+        self.login_entry.grid(row=0, column=1)
+        self.login_entry.focus_set()
         
         login_button = TK.Button(self.login_popup, text="Login", command=self.popup_submit)
         login_button.grid(row=1, columnspan=2)
@@ -111,7 +110,7 @@ class ChatBox(object):
             Destroys the popup window.
             
         '''
-        print(self.my_msg.get())
+        self.my_msg.set(self.login_entry.get())
         Network.send()
         self.my_msg.set("Type your message here.")
         self.login_popup.destroy()
