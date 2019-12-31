@@ -1,5 +1,7 @@
 '''
     This is the Server side of a chat application.
+    Based on the work from:
+        https://medium.com/swlh/lets-write-a-chat-app-in-python-f6783a9ac170
 '''
 
 import socket
