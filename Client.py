@@ -81,9 +81,6 @@ class ChatBox(object):
         self.main.pack()
         self.my_msg = TK.StringVar()
         
-        self.read_frame = self.read_frame()
-        self.input_frame = self.input_frame()
-
         self.popup = self.popup()
         self.read_frame = self.read_frame()
         self.input_frame = self.input_frame()
