@@ -23,7 +23,7 @@ class network_Handle(object):
         server_IP = "127.0.0.1"
         server_Port = 1234
         self.ADDR = (server_IP,server_Port)
-        self.BUFFER_SIZE = 10
+        self.BUFFER_SIZE = 1024
         
         try:
             self.client_socket = socket.create_connection((server_IP, server_Port))
