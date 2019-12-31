@@ -79,9 +79,44 @@ class ChatBox(object):
         self.main.pack()
         self.my_msg = TK.StringVar()
         
-        
         self.read_frame = self.read_frame()
         self.input_frame = self.input_frame()
+
+        self.popup = self.popup()
+        self.read_frame = self.read_frame()
+        self.input_frame = self.input_frame()
+
+    def popup(self):
+        '''
+            Creats the login popup window.
+            Waits for the User to input a Username to be recognized by the server.
+            Runs the popup_submit function.
+        '''
+        self.login_popup = TK.Tk()
+        self.login_popup.title("Login")
+        
+        login_label = TK.Label(self.login_popup, text="Usersname")
+        login_label.grid(row=0, column=0)
+        
+        self.login_entry = TK.Entry(self.login_popup)
+        self.login_entry.bind('<Return>', self.popup_submit)
+        self.login_entry.grid(row=0, column=1)
+        self.login_entry.focus_set()
+        
+        login_button = TK.Button(self.login_popup, text="Login", command=self.popup_submit)
+        login_button.grid(row=1, columnspan=2)
+        
+    def popup_submit(self):
+        '''
+            Calls the Network.send function to send the Username to the Server.
+            Sets the chat box to a default message.
+            Destroys the popup window.
+            
+        '''
+        self.my_msg.set(self.login_entry.get())
+        Network.send()
+        self.my_msg.set("Type your message here.")
+        self.login_popup.destroy()
         
     def read_frame(self):
         '''
