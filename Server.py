@@ -1,49 +1,53 @@
 import socket
+from threading import Thread
+
+def accept_incomming():
+    while True:
+        client, address = server.accept()
+        addresses[client] = address
+        Thread(target=handle_client, args=(client,)).start()
+        
+def handle_client(client):
+    name = client.recv(BUFFER_SIZE).decode('utf-8')
+    welcome = f"Welcome {name}. When you want to quit send a /quit command."
+    client.send(bytes(welcome, 'utf-8'))
+    msg = f"{name} has joined the channel."
+    broadcast(bytes(msg, 'utf-8'))
+    clients[client] = name
+    
+    while True:
+        msg = client.recv(BUFFER_SIZE)
+        if msg != bytes("/quit", 'utf-8'):
+            broadcast(msg, name+": ")
+        else:
+            try:
+                client.send(bytes("/quit", 'utf-8'))
+            except ConnectionResetError:
+                continue
+            client.close()
+            del clients[client]
+            broadcast(bytes("{name} has left the channel", 'utf-8'))
+            break
+        
+def broadcast(msg, prefix=""):
+    for sock in clients:
+        sock.send(bytes(prefix, 'utf-8')+ msg)
+
+addresses = {}
+clients = {}
 
 server_IP = "127.0.0.1"
 TCP_Port = 1234
 BUFFER_SIZE = 1024
+ADDR = (server_IP, TCP_Port)
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind((server_IP, TCP_Port))
-print(server)
-server.listen(10)
-print("Server is listening.")
-users = dict()
-
-conn = server.accept()[0]
-print ("Connection Address:", conn.getpeername())
-
-def __main__():
-    BUFFER_SIZE = 1024
-    global users
-
-    while True:
-        data = conn.recv(BUFFER_SIZE)
-        print (data)
-        
-        try:
-            keyword, data = str(data).split(" says: ")
-            if keyword.strip("b'") not in users:
-                users[data.strip("'")] = conn
-                print (f"{conn.getpeername()[0]} connected with username: {data}")
-            elif data == "b''": 
-                conn.close()
-                server.close()
-                break
-            else:
-                print(f"received data from {users[conn.getpeername()[0]]}:", data)
-                conn.send(f"{users[conn.getpeername()[0]]} says: {str(data)[2:len(str(data))-1]}".encode("utf-8"))
-        except:
-            if data == "b'exit'":
-                conn.close()
-                server.close()
-                break
-            elif data == "b''": 
-                conn.close()
-                server.close()
-                break
+server.bind(ADDR)
 
 
 if __name__ == "__main__":
-    __main__()
+    server.listen(10)
+    ACCEPT_THREAD = Thread(target=accept_incomming)
+    ACCEPT_THREAD.start()
+    ACCEPT_THREAD.join()
+    server.close()
