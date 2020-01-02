@@ -5,14 +5,15 @@
 '''
 
 import socket
-from threading import Thread
-import tkinter as TK
+from queue import Queue
+#import tkinter as TK
 import sys
 
 class network_Handle(object):
     '''
-    This class is for the network portion of the application, 
+    This class is for the network portion of the application.
     '''
+    msg_recv = Queue()
     def __init__(self):
         '''
         Sets Chatbox and top to global vars.
@@ -20,52 +21,52 @@ class network_Handle(object):
         Trys to create the connection to the server, if the server can't be found, exits the script.
         Starts the thread for receiving messages from the server.
         '''
-        global Chatbox
-        global top
         server_IP = "127.0.0.1"
         server_Port = 1234
         self.ADDR = (server_IP,server_Port)
         self.BUFFER_SIZE = 1024
         
+        self.server_connect()
+        
+    def server_connect(self):
         try:
-            self.client_socket = socket.create_connection((server_IP, server_Port))
+            self.client_socket = socket.create_connection(self.ADDR)
+            
         except ConnectionRefusedError:
             print("No Server Found.")
             sys.exit()
         
-        RECEIVE_THREAD = Thread(target=self.receive)
-        RECEIVE_THREAD.start()
     
-    def receive(self):
+    async def receive(self):
         '''
             Runs an infinate loop in it's own thread started from network_Handle.__init__, listening for
             messages from the server to add to the Chatbox's message log.
         '''
         while True:
             try:
-                msg = self.client_socket.recv(self.BUFFER_SIZE).decode('utf-8')
-                Chatbox.msg_list.insert(TK.END, msg)
+                msg = (self.client_socket.recv(self.BUFFER_SIZE).decode('utf-8'))
+                print(f"Received {msg}")
+                self.msg_recv.put(msg)
             except OSError:
                 break
             
-    def send(self,event=None):
+    def send(self, msg, event=None):
         '''
             Pulls the String out of Chatbox.my_msg, and makes sure it's not an empty string.
             Clears the chat input box.
             Sends the message to the Server.
             If the message is "/quit", closes the socket, and exits the GUI.
         '''
-        msg = Chatbox.my_msg.get()
         if msg != "":
             print(msg)
         else:
             print("Message not found.")
-        Chatbox.my_msg.set("")
         self.client_socket.send(bytes(msg, 'utf-8'))
         if msg=="/quit":
             self.client_socket.close()
-            top.destroy()
+            self.RECEIVE_THREAD._stop()
 
+"""
 class ChatBox(object):
     '''
         Class to create and run the GUI.
@@ -142,7 +143,8 @@ class ChatBox(object):
         send_button.pack()
           
         input_frame.pack()
-    
+"""
+
 if __name__ == "__main__":
     '''
         Starts the network_Handle class.
@@ -151,7 +153,7 @@ if __name__ == "__main__":
         Starts the application.
     '''
     Network = network_Handle()
-    top = TK.Tk()
-    top.title("ChatBox")
-    Chatbox = ChatBox(top)
-    top.mainloop()
+#    top = TK.Tk()
+#    top.title("ChatBox")
+#    Chatbox = ChatBox(top)
+#    top.mainloop()

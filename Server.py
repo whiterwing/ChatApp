@@ -40,6 +40,7 @@ def handle_client(client):
     while True:
         try:
             msg = client.recv(BUFFER_SIZE)
+            print(msg)
         except ConnectionResetError:
             continue
         if msg != bytes("/quit", 'utf-8'):
