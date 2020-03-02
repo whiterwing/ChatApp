@@ -1,6 +1,6 @@
 import tkinter as TK
 from Client import network_Handle
-from queue import Empty
+import queue
 import asyncio
 
 class GUI(object):
@@ -8,27 +8,33 @@ class GUI(object):
         network = network_Handle()
     except:
         print("server not Found")
+    root = None
+    tasks = []
     
-    def __init__(self):
+    def __init__(self,loop):
         self.root = TK.Tk()
         self.root.title("ChatBox")
         self.root.geometry('500x500')
-        self.mainWindow(self.root)
+        self.root.protocol("WM_DELETE_WINDOW", self.close)
+        GUI.root = self.root
         
-        await (self.network.receive())
+        GUI.tasks.append(loop.create_task(self.updater()))
+        GUI.tasks.append(loop.create_task(GUI.network.receive()))
+        GUI.tasks.append(loop.create_task(GUI.network.send()))
         
-        self.root.mainloop()
-        
+        self.loginWindow(self.root)
+        #self.root.mainloop()
+    
+    async def updater(self):
+        while True:
+            await asyncio.sleep(1/100)
+            self.root.update()
+    
         
     def close(self):
+        for task in GUI.tasks:
+            task.cancel()
         self.root.destroy()
-    
-    class mainWindow(object):
-        def __init__(self, master):
-            self.main = TK.Frame(master)
-            self.main.pack()
-            
-            GUI.loginWindow(self.main)
     
     class loginWindow(object):
         def __init__(self, master):
@@ -59,12 +65,13 @@ class GUI(object):
             Button.pack()
             
         def usernameSubmit(self, event=None):
-            GUI.network.send(msg=(self.Entry.get()))
+            GUI.network.msg_send.put(self.Entry.get())
             self.window.destroy()
             GUI.ChatWindow(self.master)
             
     class ChatWindow(object):
         my_msg = None
+        
         
         def __init__(self, master):
             self.master = master
@@ -75,6 +82,7 @@ class GUI(object):
             
             self.chatBox()
             self.chatInput()
+            GUI.tasks.append(asyncio.get_event_loop().create_task(self.checkForListUpdate()))
     
         def chatBox(self):
             Frame = TK.Frame(self.window)
@@ -86,15 +94,15 @@ class GUI(object):
             self.msg_list = TK.Listbox(Frame, yscrollcommand=scrollbar.set)
             self.msg_list.pack(side=TK.LEFT, fill=TK.BOTH)
             
-            self.checkForListUpdate()
-            
-        def checkForListUpdate(self):
-            try:
-                msg = GUI.network.msg_recv.get_nowait()
-            except Empty:
-                pass
-            else:
-                self.msg_list.insert(TK.END, msg)
+        async def checkForListUpdate(self):
+            print("Starting Checker")
+            while True:
+                try:
+                    msg = GUI.network.msg_recv.get_nowait()
+                    self.msg_list.insert(TK.END, msg)
+                except queue.Empty:
+                    pass
+                await asyncio.sleep(1/30)
     
         def chatInput(self):
             Frame = TK.Frame(self.window)
@@ -108,9 +116,11 @@ class GUI(object):
             send_button.pack()
     
         def test_print(self, event=None):
-            GUI.network.send(msg=(self.entry_field.get()))
+            GUI.network.msg_send.put(self.entry_field.get())
             if self.entry_field.get() == "/quit":
-                GUI.close()
+                GUI.root.destroy()
+                for task in GUI.tasks:
+                    task.cancel()
             else:
                 self.my_msg.set("")
 
@@ -122,5 +132,6 @@ if __name__ == "__main__":
         Starts the ChatBox class.
         Starts the application.
     '''
-    GUI()
+    loop = asyncio.get_event_loop()
+    GUI(loop)
     

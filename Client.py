@@ -5,15 +5,16 @@
 '''
 
 import socket
-from queue import Queue
-#import tkinter as TK
+import queue
+import asyncio
 import sys
 
 class network_Handle(object):
     '''
     This class is for the network portion of the application.
     '''
-    msg_recv = Queue()
+    msg_recv = queue.Queue()
+    msg_send = queue.Queue()
     def __init__(self):
         '''
         Sets Chatbox and top to global vars.
@@ -31,7 +32,8 @@ class network_Handle(object):
     def server_connect(self):
         try:
             self.client_socket = socket.create_connection(self.ADDR)
-            
+            self.client_socket.setblocking(0)
+            print(f"Connected to server at {self.ADDR}")
         except ConnectionRefusedError:
             print("No Server Found.")
             sys.exit()
@@ -42,118 +44,38 @@ class network_Handle(object):
             Runs an infinate loop in it's own thread started from network_Handle.__init__, listening for
             messages from the server to add to the Chatbox's message log.
         '''
+        print("Starting receiver.")
         while True:
+            await asyncio.sleep(1/30)
             try:
                 msg = (self.client_socket.recv(self.BUFFER_SIZE).decode('utf-8'))
                 print(f"Received {msg}")
                 self.msg_recv.put(msg)
+            except BlockingIOError:
+                pass
             except OSError:
                 break
-            
-    def send(self, msg, event=None):
+                
+    async def send(self):
         '''
             Pulls the String out of Chatbox.my_msg, and makes sure it's not an empty string.
             Clears the chat input box.
             Sends the message to the Server.
             If the message is "/quit", closes the socket, and exits the GUI.
         '''
-        if msg != "":
-            print(msg)
-        else:
-            print("Message not found.")
-        self.client_socket.send(bytes(msg, 'utf-8'))
-        if msg=="/quit":
-            self.client_socket.close()
-            self.RECEIVE_THREAD._stop()
-
-"""
-class ChatBox(object):
-    '''
-        Class to create and run the GUI.
-    '''
-    def __init__(self, master):
-        '''
-            Sets Network to the Global scope.
-            Creats the main frame for the GUI
-            Starts the login popup window.
-        '''
-        global Network
-        self.main = TK.Frame(master)
-        self.main.pack()
-        self.my_msg = TK.StringVar()
-        
-        self.popup = self.popup()
-        self.read_frame = self.read_frame()
-        self.input_frame = self.input_frame()
-
-    def popup(self):
-        '''
-            Creats the login popup window.
-            Waits for the User to input a Username to be recognized by the server.
-            Runs the popup_submit function.
-        '''
-        self.login_popup = TK.Tk()
-        self.login_popup.title("Login")
-        
-        login_label = TK.Label(self.login_popup, text="Usersname")
-        login_label.grid(row=0, column=0)
-        
-        self.login_entry = TK.Entry(self.login_popup)
-        self.login_entry.bind('<Return>', self.popup_submit)
-        self.login_entry.grid(row=0, column=1)
-        self.login_entry.focus_set()
-        
-        login_button = TK.Button(self.login_popup, text="Login", command=self.popup_submit)
-        login_button.grid(row=1, columnspan=2)
-        
-    def popup_submit(self):
-        '''
-            Calls the Network.send function to send the Username to the Server.
-            Sets the chat box to a default message.
-            Destroys the popup window.
-            
-        '''
-        self.my_msg.set(self.login_entry.get())
-        Network.send()
-        self.my_msg.set("Type your message here.")
-        self.login_popup.destroy()
-        
-    def read_frame(self):
-        '''
-            Creates the chat log for network_Handle.receive to populate.
-        '''
-        chatbox_frame = TK.Frame(self.main)
-        scrollbar = TK.Scrollbar(chatbox_frame)
-        
-        self.msg_list = TK.Listbox(chatbox_frame, height=15, width=50, yscrollcommand=scrollbar.set)
-        scrollbar.pack(side=TK.RIGHT, fill=TK.Y)
-        self.msg_list.pack(side=TK.LEFT, fill=TK.BOTH)
-        chatbox_frame.pack()
-          
-    def input_frame(self):
-        '''
-            Creates the Chatbox and sends input to network.send() to send to the Server.
-        '''
-        input_frame = TK.Frame(self.main)                        
-        entry_field = TK.Entry(input_frame, textvariable=self.my_msg)
-        entry_field.bind('<Return>', Network.send)
-        entry_field.pack()
-          
-        send_button = TK.Button(input_frame, text='Send', command=Network.send)
-        send_button.pack()
-          
-        input_frame.pack()
-"""
+        print("Starting Sender.")
+        while True:
+            await asyncio.sleep(1/30)
+            try:
+                msg = self.msg_send.get_nowait()
+                self.client_socket.send(bytes(msg, 'utf-8'))
+                if msg=="/quit":
+                    self.client_socket.close()
+            except queue.Empty:
+                pass
 
 if __name__ == "__main__":
     '''
-        Starts the network_Handle class.
-        Creates the main application for Chatbox.
-        Starts the ChatBox class.
         Starts the application.
     '''
     Network = network_Handle()
-#    top = TK.Tk()
-#    top.title("ChatBox")
-#    Chatbox = ChatBox(top)
-#    top.mainloop()

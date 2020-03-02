@@ -15,6 +15,7 @@ def accept_incomming():
     '''
     while True:
         client, address = server.accept()
+        print(f"accepted incomming connetion from: {address}")
         addresses[client] = address
         Thread(target=handle_client, args=(client,)).start()
         
@@ -37,19 +38,21 @@ def handle_client(client):
     broadcast(bytes(msg, 'utf-8'))
     clients[client] = name
     
+    global messages
+    
+    for msg in messages:
+        client.send(bytes(msg, 'utf-8'))
+    
     while True:
-        try:
-            msg = client.recv(BUFFER_SIZE)
-            print(msg)
-        except ConnectionResetError:
-            continue
+        msg = client.recv(BUFFER_SIZE)
+        print(msg)
         if msg != bytes("/quit", 'utf-8'):
             broadcast(msg, name+": ")
+            if len(messages) > 1000:
+                messages.pop(0)
+            messages.append(f"{name}: {msg}")
         else:
-            try:
-                client.send(bytes("/quit", 'utf-8'))
-            except ConnectionResetError:
-                continue
+            client.send(bytes("/quit", 'utf-8'))
             client.close()
             del clients[client]
             broadcast(bytes(f"{name} has left the channel", 'utf-8'))
@@ -73,6 +76,7 @@ if __name__ == "__main__":
     '''
     addresses = {}
     clients = {}
+    messages = []
     
     server_IP = "127.0.0.1"
     TCP_Port = 1234
@@ -81,6 +85,7 @@ if __name__ == "__main__":
     
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind(ADDR)
+    print("Server Running")
 
     server.listen(10)
     ACCEPT_THREAD = Thread(target=accept_incomming)
