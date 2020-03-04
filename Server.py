@@ -3,92 +3,56 @@
     Based on the work from:
         https://medium.com/swlh/lets-write-a-chat-app-in-python-f6783a9ac170
 '''
+import asyncio
 
-import socket
-from threading import Thread
+class Server:
+    def __init__(self):
+        self.connections = {}
+        self.server_IP = "127.0.0.1"
+        self.TCP_port = 1234
 
-def accept_incomming():
-    '''
-        Runs an infinate loop in it's own Thread listening for incoming connections.
-        Adds to a dict, where the key(client) is the socket object, and value(address) is the address of the far end.
-        Creates a new thread for each new conneciton.
-    '''
-    while True:
-        client, address = server.accept()
-        print(f"accepted incomming connetion from: {address}")
-        addresses[client] = address
-        Thread(target=handle_client, args=(client,)).start()
+        self.loop = asyncio.get_event_loop()
+
+        self.loop.create_task(self.accecpt_connection())
+    
+    async def accecpt_connection(self):
+        self.server = await asyncio.start_server(
+            self.client_connected, self.server_IP, self.TCP_port)
+        await self.server.serve_forever()
+
+    async def client_connected(self, reader, writer):
+        # Communicate with the client with
+        # reader/writer streams.  For example:
+        name = await reader.read(1024)
+        name = name.decode()
+        writer.write(f"Welcome to the server {name}.".encode())
         
-def handle_client(client):
-    '''
-        Sets the Username to the first string that comes over the connection.
-        Sends back a welcome message.
-        Broadcast to all connected users the a new user has joined.
-        Adds the new users to a dict where the key(client) is a socket object, and the value(name) is the username.
-        Creates a loop that broadcasts incomming messages.
-        If incoming message is "/quit": 
-            closes the connection
-            removes the dict entry
-            sends a broadcast telling everyone the Users has left the channel
-    '''
-    name = client.recv(BUFFER_SIZE).decode('utf-8')
-    welcome = f"Welcome {name}. When you want to quit send a /quit command."
-    client.send(bytes(welcome, 'utf-8'))
-    msg = f"{name} has joined the channel."
-    broadcast(bytes(msg, 'utf-8'))
-    clients[client] = name
-    
-    global messages
-    
-    for msg in messages:
-        client.send(bytes(msg, 'utf-8'))
-    
-    while True:
-        msg = client.recv(BUFFER_SIZE)
-        print(msg)
-        if msg != bytes("/quit", 'utf-8'):
-            broadcast(msg, name+": ")
-            if len(messages) > 1000:
-                messages.pop(0)
-            messages.append(f"{name}: {msg}")
-        else:
-            client.send(bytes("/quit", 'utf-8'))
-            client.close()
-            del clients[client]
-            broadcast(bytes(f"{name} has left the channel", 'utf-8'))
-            break
+        await self.loop.create_task(self.broadcast(f"{name} has joined the server."))
         
-def broadcast(msg, prefix=""):
-    '''
-        Sends a message to all users in the clients dict.
-    '''
-    for sock in clients:
-        sock.send(bytes(prefix, 'utf-8')+ msg)
-
-
+        self.connections[name] = writer
+        
+        while True:
+            data = await reader.read(1024)
+            data = data.decode()
+            
+            if data == "/quit":
+                await self.close_connection(writer)
+                self.connections.pop(name)
+                self.loop.create_task(self.broadcast(f"{name} has left the server."))
+                break
+            else:
+                data = f"{name}: {data}"
+                self.loop.create_task(self.broadcast(data))
+                
+    async def broadcast(self, msg):
+        for user in self.connections.keys():
+            self.connections[user].write(msg.encode())
+            await self.connections[user].drain()
+                
+    async def close_connection(self, writer):
+        writer.close()
+        await writer.wait_closed()
+    
 if __name__ == "__main__":
-    '''
-        Creats the addresses and clients dictionaries.
-        Sets the Server's IP, Port, and Buffer size.
-        Creates the socket, binds it to the ip:port.
-        Sets the socket to listen for up to 10 active users.
-        Creates and Starts the Thread to listen for incomming connections.
-    '''
-    addresses = {}
-    clients = {}
-    messages = []
     
-    server_IP = "127.0.0.1"
-    TCP_Port = 1234
-    BUFFER_SIZE = 1024
-    ADDR = (server_IP, TCP_Port)
-    
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind(ADDR)
-    print("Server Running")
-
-    server.listen(10)
-    ACCEPT_THREAD = Thread(target=accept_incomming)
-    ACCEPT_THREAD.start()
-    ACCEPT_THREAD.join()
-    server.close()
+    server = Server()

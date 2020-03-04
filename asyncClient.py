@@ -6,45 +6,18 @@ Created on Fri Jan  3 07:35:17 2020
 """
 
 
-from autobahn.asyncio.websocket import WebSocketClientProtocol, \
-WebSocketClientFactory
+import asyncio
 
-
-class MyClientProtocol(WebSocketClientProtocol):
+async def tcp_echo_client(message):
+    reader, writer = await asyncio.open_connection('127.0.0.1', 8888)
     
-    def onConnect(self, response):
-        print(f"Server connected: {response.peer}")
-        
-    def onConnecting(self, transport_details):
-        print(f"Connection; transport details: {transport_details}")
-        
-    def onOpen(self):
-        print("Socket opened")
-        
-        self.sendMessage(u'Hello'.encode('utf-8'))
-        
-    def onMessage(self, payload, isBinary):
-        if isBinary:
-            print(f"Binary message received: {len(payload)} bytes")
-        else:
-            print(f"Text message received: {payload.decode('utf-8')}")
-            
-    def onClose(self, wasClean, code, reason):
-        print(f"Websocket connection closed: {reason}")
-        
-    def send(self, msg):
-        self.sendMessage(msg.encode('utf-8'))
-        
-        
-if __name__ == '__main__':
-    try:
-        import asyncio
-    except ImportError:
-        import trollius as asyncio
-        
-    factory = WebSocketClientFactory(u"ws://127.0.0.1:1234")
-    factory.protocol = MyClientProtocol
+    print(f"Send: {message!r}")
+    writer.write(message.encode())
     
-    loop = asyncio.get_event_loop()
-    coro = loop.create_connection(factory, '127.0.0.1', 1234)
-    loop.create_task(coro)
+    data = await reader.read()
+    print(f"Received: {data.decode()!r}")
+    
+    print("close the connection")
+    writer.close()
+    
+asyncio.get_event_loop().create_task(tcp_echo_client("Hello!"))

@@ -4,75 +4,52 @@
         https://medium.com/swlh/lets-write-a-chat-app-in-python-f6783a9ac170
 '''
 
-import socket
-import queue
 import asyncio
-import sys
 
 class network_Handle(object):
     '''
     This class is for the network portion of the application.
     '''
-    msg_recv = queue.Queue()
-    msg_send = queue.Queue()
     def __init__(self):
-        '''
-        Sets Chatbox and top to global vars.
-        Sets the server's ip and which port to use, and the buffer size to send across the network.
-        Trys to create the connection to the server, if the server can't be found, exits the script.
-        Starts the thread for receiving messages from the server.
-        '''
-        server_IP = "127.0.0.1"
-        server_Port = 1234
-        self.ADDR = (server_IP,server_Port)
-        self.BUFFER_SIZE = 1024
         
-        self.server_connect()
+        self.server_IP = "127.0.0.1"
+        self.server_Port = 1234
         
-    def server_connect(self):
+        asyncio.get_event_loop().create_task(self.server_connect())
+        
+    async def server_connect(self):
         try:
-            self.client_socket = socket.create_connection(self.ADDR)
-            self.client_socket.setblocking(0)
-            print(f"Connected to server at {self.ADDR}")
-        except ConnectionRefusedError:
-            print("No Server Found.")
-            sys.exit()
-        
+            self.chat_reader, self.chat_writer = await asyncio.open_connection(self.server_IP, self.server_Port)
+            print(f"Connected to server at {self.server_IP}:{self.server_Port}")
+        except:
+            print("Server not found.")
     
     async def receive(self):
         '''
             Runs an infinate loop in it's own thread started from network_Handle.__init__, listening for
             messages from the server to add to the Chatbox's message log.
         '''
-        print("Starting receiver.")
-        while True:
-            await asyncio.sleep(1/30)
-            try:
-                msg = (self.client_socket.recv(self.BUFFER_SIZE).decode('utf-8'))
-                print(f"Received {msg}")
-                self.msg_recv.put(msg)
-            except BlockingIOError:
-                pass
-            except OSError:
-                break
+        msg = await self.chat_reader.read(1024)
+        print(f"Received {msg.decode()!r}")
+        return msg
+            
                 
-    async def send(self):
+    def send(self, msg):
         '''
             Pulls the String out of Chatbox.my_msg, and makes sure it's not an empty string.
             Clears the chat input box.
             Sends the message to the Server.
             If the message is "/quit", closes the socket, and exits the GUI.
         '''
-        print("Starting Sender.")
-        while True:
-            await asyncio.sleep(1/30)
-            try:
-                msg = self.msg_send.get_nowait()
-                self.client_socket.send(bytes(msg, 'utf-8'))
-                if msg=="/quit":
-                    self.client_socket.close()
-            except queue.Empty:
-                pass
+        self.chat_writer.write(msg.encode())
+        if msg == "/quit":
+            asyncio.get_event_loop().create_task(self.close_connection())
+            print("connection closed.")
+            
+            
+    async def close_connection(self):
+        self.chat_writer.close()
+        await self.chat_writer.wait_closed()
 
 if __name__ == "__main__":
     '''
