@@ -7,6 +7,10 @@ import asyncio
 
 class Server:
     def __init__(self):
+        '''
+            defines the Server's IP and Port, creates a dictionary for all
+            connections. Starts the server.
+        '''
         self.connections = {}
         self.server_IP = "127.0.0.1"
         self.TCP_port = 1234
@@ -16,13 +20,24 @@ class Server:
         self.loop.create_task(self.accecpt_connection())
     
     async def accecpt_connection(self):
+        '''
+            creates a coroutine to wait for incoming connections, and starts an
+            instance of client_handler when one does. The client_handler is passed
+            the readerStream/writerStream objects.
+        '''
         self.server = await asyncio.start_server(
-            self.client_connected, self.server_IP, self.TCP_port)
+            self.client_handler, self.server_IP, self.TCP_port)
         await self.server.serve_forever()
 
-    async def client_connected(self, reader, writer):
-        # Communicate with the client with
-        # reader/writer streams.  For example:
+    async def client_handler(self, reader, writer):
+        '''
+            A coroutine for handling the client connections. Receives a username
+            from the client, checks if the username is already used, sends a welcome
+            message. Addes the user to the connections dictionary with the name as the key
+            and the I/O streams as the value. Let's all other users know who has connected.
+            Waits for messages the connected client, broadcasts the message back to everyone
+            else connected. If the user wants to quit, starts the close_connection coroutine.
+        '''
         while True:
             name = await reader.read(1024)
             name = name.decode()
@@ -51,11 +66,17 @@ class Server:
                 self.loop.create_task(self.broadcast(data))
                 
     async def broadcast(self, msg):
+        '''
+            Sends a message back out to all other connected clients.
+        '''
         for user in self.connections.keys():
             self.connections[user].write(msg.encode())
             await self.connections[user].drain()
                 
     async def close_connection(self, writer):
+        '''
+            closes out the requested connection.
+        '''
         writer.close()
         await writer.wait_closed()
     
