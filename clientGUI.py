@@ -13,7 +13,6 @@ class GUI(object):
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         
         GUI.tasks.append(loop.create_task(self.updater()))
-        GUI.tasks.append(loop.create_task(GUI.network.receive()))
         
         self.loginWindow(self.root)
         #self.root.mainloop()
@@ -48,8 +47,10 @@ class GUI(object):
             Label = TK.Label(Frame, text="Username:")
             Label.pack(side=TK.LEFT)
             
-            self.Entry = TK.Entry(Frame)
-            self.Entry.bind('<Return>', self.usernameSubmit)
+            self.username = TK.StringVar()
+            
+            self.Entry = TK.Entry(Frame, textvariable=self.username, width=50)
+            self.Entry.bind('<Return>', self.Submit_button_handler)
             self.Entry.pack(side=TK.RIGHT)
             self.Entry.focus_set()
             
@@ -57,18 +58,26 @@ class GUI(object):
             Frame = TK.Frame(self.window)
             Frame.pack()
             
-            Button = TK.Button(Frame, text="Login", command=self.usernameSubmit)
+            Button = TK.Button(Frame, text="Login", command = self.Submit_button_handler)
             Button.pack()
-            
-        def usernameSubmit(self, event=None):
+        
+        
+        def Submit_button_handler(self, event=None):
+            asyncio.get_event_loop().create_task(self.usernameSubmit())
+        
+        async def usernameSubmit(self):
             GUI.network.send(self.Entry.get())
-            self.window.destroy()
-            GUI.ChatWindow(self.master)
+            
+            msg = await asyncio.get_event_loop().create_task(GUI.network.receive())
+            
+            if "Welcome" in msg:
+                self.window.destroy()
+                GUI.ChatWindow(self.master)
+            else:
+                self.username.set(msg)
+            
             
     class ChatWindow(object):
-        my_msg = None
-        
-        
         def __init__(self, master):
             self.master = master
             self.window = TK.Frame(master)
@@ -91,7 +100,6 @@ class GUI(object):
             self.msg_list.pack(side=TK.LEFT, fill=TK.BOTH)
             
         async def checkForListUpdate(self):
-            print("Starting Checker")
             while True:
                 msg = await asyncio.get_event_loop().create_task(GUI.network.receive())
                 self.msg_list.insert(TK.END, msg)

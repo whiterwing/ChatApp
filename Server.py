@@ -23,9 +23,15 @@ class Server:
     async def client_connected(self, reader, writer):
         # Communicate with the client with
         # reader/writer streams.  For example:
-        name = await reader.read(1024)
-        name = name.decode()
-        writer.write(f"Welcome to the server {name}.".encode())
+        while True:
+            name = await reader.read(1024)
+            name = name.decode()
+            if name not in self.connections.keys():
+                writer.write(f"Welcome to the server {name}.".encode())
+                break
+            else:
+                writer.write(f"{name} is already taken.".encode())
+                
         
         await self.loop.create_task(self.broadcast(f"{name} has joined the server."))
         

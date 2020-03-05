@@ -1,7 +1,5 @@
 '''
     This is the Client side of a chat application.
-    Based on the work from:
-        https://medium.com/swlh/lets-write-a-chat-app-in-python-f6783a9ac170
 '''
 
 import asyncio
@@ -26,20 +24,16 @@ class network_Handle(object):
     
     async def receive(self):
         '''
-            Runs an infinate loop in it's own thread started from network_Handle.__init__, listening for
-            messages from the server to add to the Chatbox's message log.
+            
         '''
         msg = await self.chat_reader.read(1024)
         print(f"Received {msg.decode()!r}")
-        return msg
+        return msg.decode()
             
                 
     def send(self, msg):
         '''
-            Pulls the String out of Chatbox.my_msg, and makes sure it's not an empty string.
-            Clears the chat input box.
-            Sends the message to the Server.
-            If the message is "/quit", closes the socket, and exits the GUI.
+            
         '''
         self.chat_writer.write(msg.encode())
         if msg == "/quit":
