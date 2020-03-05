@@ -113,6 +113,8 @@ class GUI(object):
         frame.pack()
         
         self.my_msg = TK.StringVar()
+        self.users = list()
+        self.connectedUsers = TK.Variable(value=self.users)
         
         scrollbar = TK.Scrollbar(frame)
         scrollbar.grid(row=0, column=1)
@@ -120,6 +122,10 @@ class GUI(object):
         self.msg_list = TK.Listbox(frame, width=50, height=20, yscrollcommand=scrollbar.set)
         self.msg_list.grid(row=0, column=0)
         self.msg_list.insert(TK.END, self.welcomemsg)
+        
+        self.connected_list = TK.Listbox(frame, height=20, listvariable=self.connectedUsers)
+        self.connected_list.grid(row=0, column=2)
+        self.connected_list.__contains__ = lambda str: str in self.connected_list.get(0, "end")
         
         self.chatEntry = TK.Entry(frame, textvariable=self.my_msg)
         self.chatEntry.bind('<Return>', self.send_chat)
@@ -133,12 +139,20 @@ class GUI(object):
         
     async def checkForListUpdate(self):
         '''
-            persistant coroutine for checking for new messages. When it receives
-            one, it adds the message to the end of the listbox.
+            persistant coroutine for checking for new messages. Checks if it's a
+            server message that contains a string of everyone connected.
+            When it receives one, it adds the message to the end of the listbox.
         '''
         while True:
             msg = await self.loop.create_task(self.network.receive())
-            self.msg_list.insert(TK.END, msg)
+            if "$$$SERVER$$$" in msg:
+                serverSTR = msg.strip("$$$SERVER$$$:")
+                connected = list()
+                for user in serverSTR.split(":"):
+                    connected.append(user)
+                self.connectedUsers.set(connected)
+            else:
+                self.msg_list.insert(TK.END, msg)
         
     def send_chat(self, event=None):
         '''

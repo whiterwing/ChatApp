@@ -49,8 +49,11 @@ class Server:
                 
         
         await self.loop.create_task(self.broadcast(f"{name} has joined the server."))
+        await asyncio.sleep(1)
         
         self.connections[name] = writer
+        
+        await self.loop.create_task(self.onlineBroadcast())
         
         while True:
             data = await reader.read(1024)
@@ -60,18 +63,34 @@ class Server:
                 await self.close_connection(writer)
                 self.connections.pop(name)
                 self.loop.create_task(self.broadcast(f"{name} has left the server."))
+                
+                await self.loop.create_task(self.onlineBroadcast())
+                await asyncio.sleep(1)
+                
                 break
             else:
                 data = f"{name}: {data}"
                 self.loop.create_task(self.broadcast(data))
                 
+    async def onlineBroadcast(self):
+        '''
+            Makes a STR of everyone connected and sends it to the clients.
+        '''
+        userstr = "$$$SERVER$$$"
+        for user in self.connections.keys():
+            userstr += f":{user}"
+        self.loop.create_task(self.broadcast(f"{userstr}"))
+                
     async def broadcast(self, msg):
         '''
             Sends a message back out to all other connected clients.
         '''
-        for user in self.connections.keys():
-            self.connections[user].write(msg.encode())
-            await self.connections[user].drain()
+        try:
+            for user in self.connections.keys():
+                self.connections[user].write(msg.encode())
+                await self.connections[user].drain()
+        except ConnectionResetError:
+            print(f"{user} has disconnected.")
                 
     async def close_connection(self, writer):
         '''
